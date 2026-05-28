@@ -3,6 +3,8 @@ package com.example.labcards.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -46,12 +49,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.labcards.data.ContentBlockJson
+import com.example.labcards.data.model.CardContentBlock
 import com.example.labcards.data.model.CardStyle
 import com.example.labcards.data.model.CardTemplateEntity
+import com.example.labcards.data.model.TimeInputUnit
 import com.example.labcards.data.model.TimerMode
 import com.example.labcards.ui.viewmodel.CardDraft
 import com.example.labcards.ui.viewmodel.ExperimentEditorState
@@ -65,6 +71,7 @@ fun FlowEditorScreen(
     onTagsChange: (String) -> Unit,
     onAddCard: () -> Unit,
     onEditCard: (Int) -> Unit,
+    onUpdateCardBlock: (Int, String, CardContentBlock) -> Unit,
     onDeleteCard: (Int) -> Unit,
     onMoveCard: (Int, Int) -> Unit,
     savedTemplates: List<CardTemplateEntity>,
@@ -75,6 +82,12 @@ fun FlowEditorScreen(
     onSaveAs: () -> Unit,
     onBack: () -> Unit
 ) {
+    var selectedFlowBlock by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    val selectedFlowCardIndex = selectedFlowBlock?.first
+    val selectedFlowCardBlock = selectedFlowBlock?.let { (cardIndex, blockId) ->
+        state.cards.getOrNull(cardIndex)?.blocks?.firstOrNull { it.id == blockId }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -97,6 +110,24 @@ fun FlowEditorScreen(
         floatingActionButton = {
             FloatingActionButton(onClick = onAddCard) {
                 Icon(Icons.Default.Add, contentDescription = "添加卡片")
+            }
+        },
+        bottomBar = {
+            if (
+                selectedFlowCardIndex != null &&
+                (selectedFlowCardBlock is CardContentBlock.NumberInputBlock ||
+                    selectedFlowCardBlock is CardContentBlock.TimeInputBlock)
+            ) {
+                FlowCardBlockQuickEditor(
+                    block = selectedFlowCardBlock,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    onDismiss = { selectedFlowBlock = null },
+                    onUpdateBlock = { blockId, replacement ->
+                        onUpdateCardBlock(selectedFlowCardIndex, blockId, replacement)
+                    }
+                )
             }
         }
     ) { padding ->
@@ -142,6 +173,11 @@ fun FlowEditorScreen(
                 cards = state.cards,
                 onAddCard = onAddCard,
                 onEditCard = onEditCard,
+                onUpdateCardBlock = onUpdateCardBlock,
+                selectedBlock = selectedFlowBlock,
+                onSelectBlock = { cardIndex, blockId ->
+                    selectedFlowBlock = cardIndex to blockId
+                },
                 onDeleteCard = onDeleteCard,
                 onMoveCard = onMoveCard
             )
@@ -257,6 +293,9 @@ private fun CurrentFlowSection(
     cards: List<CardDraft>,
     onAddCard: () -> Unit,
     onEditCard: (Int) -> Unit,
+    onUpdateCardBlock: (Int, String, CardContentBlock) -> Unit,
+    selectedBlock: Pair<Int, String>?,
+    onSelectBlock: (Int, String) -> Unit,
     onDeleteCard: (Int) -> Unit,
     onMoveCard: (Int, Int) -> Unit
 ) {
@@ -308,6 +347,11 @@ private fun CurrentFlowSection(
                             count = cards.size,
                             card = card,
                             onEdit = { onEditCard(index) },
+                            selectedBlockId = selectedBlock?.takeIf { it.first == index }?.second,
+                            onSelectBlock = { blockId -> onSelectBlock(index, blockId) },
+                            onUpdateBlock = { blockId, replacement ->
+                                onUpdateCardBlock(index, blockId, replacement)
+                            },
                             onDelete = { onDeleteCard(index) },
                             onMoveUp = { onMoveCard(index, -1) },
                             onMoveDown = { onMoveCard(index, 1) }
@@ -392,6 +436,9 @@ private fun FlowEditorCardItem(
     count: Int,
     card: CardDraft,
     onEdit: () -> Unit,
+    selectedBlockId: String?,
+    onSelectBlock: (String) -> Unit,
+    onUpdateBlock: (String, CardContentBlock) -> Unit,
     onDelete: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit
@@ -406,9 +453,10 @@ private fun FlowEditorCardItem(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("步骤 ${index + 1}", style = MaterialTheme.typography.labelLarge)
-            Text(
-                text = CardContentParser.parseToAnnotatedString(card.blocks),
-                style = MaterialTheme.typography.bodyLarge
+            InlineFlowCardBlocks(
+                blocks = card.blocks,
+                selectedBlockId = selectedBlockId,
+                onSelectBlock = onSelectBlock
             )
             Text(
                 text = timerLabel(card),
@@ -434,6 +482,137 @@ private fun FlowEditorCardItem(
                     Text("编辑")
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun InlineFlowCardBlocks(
+    blocks: List<CardContentBlock>,
+    selectedBlockId: String?,
+    onSelectBlock: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        blocks.forEach { block ->
+            when (block) {
+                is CardContentBlock.TextBlock -> {
+                    Text(
+                        text = block.text,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                is CardContentBlock.NumberInputBlock -> {
+                    OutlinedButton(onClick = { onSelectBlock(block.id) }) {
+                        Text(
+                            text = "[${block.value} ${block.unit.orEmpty()}]".replace(" ]", "]"),
+                            color = if (selectedBlockId == block.id) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
+                }
+
+                is CardContentBlock.TimeInputBlock -> {
+                    OutlinedButton(onClick = { onSelectBlock(block.id) }) {
+                        Text(
+                            text = "[${CardContentParser.formatTime(block.valueSeconds)}]",
+                            color = if (selectedBlockId == block.id) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlowCardBlockQuickEditor(
+    block: CardContentBlock,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    onDismiss: (() -> Unit)? = null,
+    onUpdateBlock: (String, CardContentBlock) -> Unit
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF).copy(alpha = 0.72f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = when (block) {
+                    is CardContentBlock.NumberInputBlock -> "编辑流程内数字"
+                    is CardContentBlock.TimeInputBlock -> "编辑流程内时间"
+                    is CardContentBlock.TextBlock -> ""
+                },
+                style = MaterialTheme.typography.titleSmall
+            )
+            onDismiss?.let {
+                TextButton(onClick = it) {
+                    Text("收起")
+                }
+            }
+            when (block) {
+                is CardContentBlock.NumberInputBlock -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = block.value,
+                            onValueChange = { onUpdateBlock(block.id, block.copy(value = it)) },
+                            label = { Text("数值") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = block.unit.orEmpty(),
+                            onValueChange = { onUpdateBlock(block.id, block.copy(unit = it)) },
+                            label = { Text("单位") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                is CardContentBlock.TimeInputBlock -> {
+                    OutlinedTextField(
+                        value = block.valueSeconds.toString(),
+                        onValueChange = {
+                            onUpdateBlock(
+                                block.id,
+                                block.copy(
+                                    valueSeconds = it.toLongOrNull() ?: 0L,
+                                    unit = TimeInputUnit.SECONDS
+                                )
+                            )
+                        },
+                        label = { Text("倒计时秒数") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                is CardContentBlock.TextBlock -> Unit
+            }
+            Text(
+                text = "这里只修改当前实验流程中的这张卡片，不会影响卡片模板。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

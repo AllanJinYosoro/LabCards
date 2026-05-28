@@ -443,6 +443,25 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateFlowCardBlock(cardIndex: Int, blockId: String, replacement: CardContentBlock) {
+        _editorState.update { state ->
+            state.copy(
+                cards = state.cards.mapIndexed { index, card ->
+                    if (index == cardIndex) {
+                        card.copy(
+                            blocks = card.blocks.map { block ->
+                                if (block.id == blockId) replacement else block
+                            }
+                        )
+                    } else {
+                        card
+                    }
+                },
+                error = null
+            )
+        }
+    }
+
     fun moveCard(index: Int, delta: Int) {
         val cards = _editorState.value.cards.toMutableList()
         val target = index + delta

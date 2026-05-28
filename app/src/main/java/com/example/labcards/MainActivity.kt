@@ -96,6 +96,7 @@ class MainActivity : ComponentActivity() {
                                     flowViewModel.startCardEdit(index)
                                     navController.navigate(Screen.CardEditor.createRoute(index))
                                 },
+                                onUpdateCardBlock = flowViewModel::updateFlowCardBlock,
                                 onDeleteCard = flowViewModel::removeCard,
                                 onMoveCard = flowViewModel::moveCard,
                                 savedTemplates = cardTemplates,
