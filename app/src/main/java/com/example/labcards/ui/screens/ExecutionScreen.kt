@@ -1,6 +1,7 @@
 package com.example.labcards.ui.screens
 
 import android.content.Context
+import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
@@ -33,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -196,9 +198,11 @@ private fun ExecutionCardItem(
 @Composable
 private fun TimerControls(initialDuration: Long) {
     val context = LocalContext.current
+    val alertController = remember(context) { TimerAlertController(context) }
     var timeLeft by remember(initialDuration) { mutableLongStateOf(initialDuration) }
     var timerState by remember(initialDuration) { mutableStateOf(TimerState.IDLE) }
     var customExtend by remember { mutableStateOf("") }
+    var alertActive by remember(initialDuration) { mutableStateOf(false) }
 
     LaunchedEffect(timerState, timeLeft) {
         if (timerState == TimerState.RUNNING && timeLeft > 0) {
@@ -210,7 +214,14 @@ private fun TimerControls(initialDuration: Long) {
 
     LaunchedEffect(timerState) {
         if (timerState == TimerState.FINISHED) {
-            notifyTimerFinished(context)
+            alertController.start()
+            alertActive = true
+        }
+    }
+
+    DisposableEffect(alertController) {
+        onDispose {
+            alertController.stop()
         }
     }
 
@@ -222,6 +233,16 @@ private fun TimerControls(initialDuration: Long) {
         )
         if (timerState == TimerState.FINISHED) {
             Text("计时结束", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            if (alertActive) {
+                Button(
+                    onClick = {
+                        alertController.stop()
+                        alertActive = false
+                    }
+                ) {
+                    Text("停止提醒")
+                }
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -234,6 +255,8 @@ private fun TimerControls(initialDuration: Long) {
             }
             OutlinedButton(
                 onClick = {
+                    alertController.stop()
+                    alertActive = false
                     timeLeft = initialDuration
                     timerState = TimerState.IDLE
                 }
@@ -242,9 +265,24 @@ private fun TimerControls(initialDuration: Long) {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { timeLeft += 30; if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED }) { Text("+30 秒") }
-            TextButton(onClick = { timeLeft += 60; if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED }) { Text("+1 分钟") }
-            TextButton(onClick = { timeLeft += 300; if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED }) { Text("+5 分钟") }
+            TextButton(onClick = {
+                alertController.stop()
+                alertActive = false
+                timeLeft += 30
+                if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED
+            }) { Text("+30 秒") }
+            TextButton(onClick = {
+                alertController.stop()
+                alertActive = false
+                timeLeft += 60
+                if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED
+            }) { Text("+1 分钟") }
+            TextButton(onClick = {
+                alertController.stop()
+                alertActive = false
+                timeLeft += 300
+                if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED
+            }) { Text("+5 分钟") }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
@@ -259,6 +297,8 @@ private fun TimerControls(initialDuration: Long) {
                 onClick = {
                     val add = customExtend.toLongOrNull()
                     if (add != null && add > 0) {
+                        alertController.stop()
+                        alertActive = false
                         timeLeft += add
                         if (timerState == TimerState.FINISHED) timerState = TimerState.PAUSED
                         customExtend = ""
@@ -271,9 +311,21 @@ private fun TimerControls(initialDuration: Long) {
     }
 }
 
-private fun notifyTimerFinished(context: Context) {
-    vibrateTimerFinished(context)
-    playTimerFinishedSound(context)
+private class TimerAlertController(context: Context) {
+    private val appContext = context.applicationContext
+    private var ringtone: Ringtone? = null
+
+    fun start() {
+        stop()
+        vibrateTimerFinished(appContext)
+        ringtone = playTimerFinishedSound(appContext)
+    }
+
+    fun stop() {
+        stopVibration(appContext)
+        ringtone?.stop()
+        ringtone = null
+    }
 }
 
 private fun vibrateTimerFinished(context: Context) {
@@ -281,26 +333,42 @@ private fun vibrateTimerFinished(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
         vibratorManager?.defaultVibrator?.vibrate(
-            VibrationEffect.createWaveform(pattern, -1)
+            VibrationEffect.createWaveform(pattern, 0)
         )
     } else {
         @Suppress("DEPRECATION")
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
         } else {
             @Suppress("DEPRECATION")
-            vibrator?.vibrate(pattern, -1)
+            vibrator?.vibrate(pattern, 0)
         }
     }
 }
 
-private fun playTimerFinishedSound(context: Context) {
+private fun stopVibration(context: Context) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+        vibratorManager?.defaultVibrator?.cancel()
+    } else {
+        @Suppress("DEPRECATION")
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        vibrator?.cancel()
+    }
+}
+
+private fun playTimerFinishedSound(context: Context): Ringtone? {
     val alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-    runCatching {
-        RingtoneManager.getRingtone(context.applicationContext, alertUri)?.play()
-    }
+    return runCatching {
+        RingtoneManager.getRingtone(context.applicationContext, alertUri)?.also { ringtone ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone.isLooping = true
+            }
+            ringtone.play()
+        }
+    }.getOrNull()
 }
 
 private fun timerDurationFor(

@@ -51,7 +51,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.example.labcards.data.model.CardContentBlock
 import com.example.labcards.data.model.CardStyle
-import com.example.labcards.data.model.TimeInputUnit
+import com.example.labcards.ui.components.TimeInputEditor
 import com.example.labcards.ui.viewmodel.CardEditorMode
 import com.example.labcards.ui.viewmodel.CardEditorState
 import com.example.labcards.util.CardContentParser
@@ -471,61 +471,15 @@ private fun SelectedSymbolEditor(
                 }
 
                 is CardContentBlock.TimeInputBlock -> {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = timeInputDisplayValue(block),
-                            onValueChange = {
-                                onUpdateBlock(
-                                    block.id,
-                                    block.copy(
-                                        valueSeconds = parseTimeInputSeconds(it, block.unit),
-                                        unit = block.unit
-                                    )
-                                )
-                            },
-                            label = { Text("时间") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = block.unit == TimeInputUnit.MINUTES,
-                            onClick = {
-                                onUpdateBlock(
-                                    block.id,
-                                    block.copy(unit = TimeInputUnit.MINUTES)
-                                )
-                            },
-                            label = { Text("min") }
-                        )
-                        FilterChip(
-                            selected = block.unit == TimeInputUnit.SECONDS,
-                            onClick = {
-                                onUpdateBlock(
-                                    block.id,
-                                    block.copy(unit = TimeInputUnit.SECONDS)
-                                )
-                            },
-                            label = { Text("second") }
-                        )
-                    }
+                    TimeInputEditor(
+                        block = block,
+                        onUpdateBlock = onUpdateBlock,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 is CardContentBlock.TextBlock -> Unit
             }
         }
-    }
-}
-
-private fun timeInputDisplayValue(block: CardContentBlock.TimeInputBlock): String =
-    when (block.unit) {
-        TimeInputUnit.MINUTES -> (block.valueSeconds / 60).toString()
-        else -> block.valueSeconds.toString()
-    }
-
-private fun parseTimeInputSeconds(value: String, unit: TimeInputUnit): Long {
-    val number = value.toLongOrNull() ?: 0L
-    return when (unit) {
-        TimeInputUnit.MINUTES -> number * 60
-        else -> number
     }
 }

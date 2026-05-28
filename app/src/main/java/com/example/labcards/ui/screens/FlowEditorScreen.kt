@@ -57,8 +57,8 @@ import com.example.labcards.data.ContentBlockJson
 import com.example.labcards.data.model.CardContentBlock
 import com.example.labcards.data.model.CardStyle
 import com.example.labcards.data.model.CardTemplateEntity
-import com.example.labcards.data.model.TimeInputUnit
 import com.example.labcards.data.model.TimerMode
+import com.example.labcards.ui.components.TimeInputEditor
 import com.example.labcards.ui.viewmodel.CardDraft
 import com.example.labcards.ui.viewmodel.ExperimentEditorState
 import com.example.labcards.util.CardContentParser
@@ -588,20 +588,9 @@ private fun FlowCardBlockQuickEditor(
                 }
 
                 is CardContentBlock.TimeInputBlock -> {
-                    OutlinedTextField(
-                        value = block.valueSeconds.toString(),
-                        onValueChange = {
-                            onUpdateBlock(
-                                block.id,
-                                block.copy(
-                                    valueSeconds = it.toLongOrNull() ?: 0L,
-                                    unit = TimeInputUnit.SECONDS
-                                )
-                            )
-                        },
-                        label = { Text("倒计时秒数") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    TimeInputEditor(
+                        block = block,
+                        onUpdateBlock = onUpdateBlock,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
