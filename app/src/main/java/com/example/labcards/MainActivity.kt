@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val flowViewModel: FlowViewModel = viewModel()
                     val summaries by flowViewModel.experimentSummaries.collectAsState()
+                    val cardTemplates by flowViewModel.cardTemplates.collectAsState()
 
                     NavHost(
                         navController = navController,
@@ -78,6 +79,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onDeleteCard = flowViewModel::removeCard,
                                 onMoveCard = flowViewModel::moveCard,
+                                savedTemplates = cardTemplates,
+                                onUseTemplate = flowViewModel::addTemplateToCurrentFlow,
                                 onSave = { flowViewModel.saveExperiment { navController.popBackStack() } },
                                 onSaveAs = { flowViewModel.saveExperiment(saveAsNew = true) { navController.popBackStack() } },
                                 onBack = { navController.popBackStack() }

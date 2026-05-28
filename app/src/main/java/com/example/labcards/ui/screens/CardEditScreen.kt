@@ -3,7 +3,6 @@ package com.example.labcards.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,7 +14,6 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,7 +27,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -67,11 +64,6 @@ fun CardEditScreen(
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
-                },
-                actions = {
-                    IconButton(onClick = onSave) {
-                        Icon(Icons.Default.Save, contentDescription = "保存卡片")
-                    }
                 }
             )
         }
@@ -83,6 +75,16 @@ fun CardEditScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            state.error?.let { error ->
+                item {
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onAddText) {
@@ -91,11 +93,11 @@ fun CardEditScreen(
                     }
                     Button(onClick = onAddNumber) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Text("数字输入")
+                        Text("数字")
                     }
                     Button(onClick = onAddTime, enabled = !hasTimeInput) {
                         Icon(Icons.Default.AccessTime, contentDescription = null)
-                        Text("时间输入")
+                        Text("时间")
                     }
                 }
             }
@@ -111,7 +113,7 @@ fun CardEditScreen(
             item {
                 Text("卡片样式", style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardStyle.values().forEach { style ->
+                    CardStyle.entries.forEach { style ->
                         FilterChip(
                             selected = state.draft.style == style,
                             onClick = { onStyleChange(style) },
@@ -131,8 +133,11 @@ fun CardEditScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("固定计时器", style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    if (hasTimeInput) "已存在时间输入框，计时器会自动绑定"
-                                    else "没有时间输入框时，可设置固定倒计时",
+                                    text = if (hasTimeInput) {
+                                        "已有时间输入框，计时器会自动绑定"
+                                    } else {
+                                        "没有时间输入框时，可以设置固定倒计时"
+                                    },
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -169,15 +174,9 @@ fun CardEditScreen(
                 }
             }
 
-            state.error?.let { error ->
-                item {
-                    Text(error, color = MaterialTheme.colorScheme.error)
-                }
-            }
-
             item {
                 Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                    Text("保存卡片")
+                    Text(if (state.index == null) "保存到当前流程" else "更新当前卡片")
                 }
             }
         }
@@ -206,7 +205,7 @@ private fun ContentBlockEditor(
                     style = MaterialTheme.typography.titleSmall
                 )
                 IconButton(onClick = { onRemoveBlock(block.id) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "删除块")
+                    Icon(Icons.Default.Delete, contentDescription = "删除")
                 }
             }
 
@@ -219,6 +218,7 @@ private fun ContentBlockEditor(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+
                 is CardContentBlock.NumberInputBlock -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -236,13 +236,17 @@ private fun ContentBlockEditor(
                         )
                     }
                 }
+
                 is CardContentBlock.TimeInputBlock -> {
                     OutlinedTextField(
                         value = block.valueSeconds.toString(),
                         onValueChange = {
                             onUpdateBlock(
                                 block.id,
-                                block.copy(valueSeconds = it.toLongOrNull() ?: 0L, unit = TimeInputUnit.SECONDS)
+                                block.copy(
+                                    valueSeconds = it.toLongOrNull() ?: 0L,
+                                    unit = TimeInputUnit.SECONDS
+                                )
                             )
                         },
                         label = { Text("倒计时秒数") },

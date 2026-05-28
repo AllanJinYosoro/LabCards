@@ -55,7 +55,9 @@ object LabValidators {
             }
         }
 
-        if (!hasTimer && timerMode != null) return ValidationResult.error("未启用计时器时不能设置计时器模式")
+        if (!hasTimer && timerMode != null) {
+            return ValidationResult.error("未启用计时器时不能设置计时器模式")
+        }
         return ValidationResult.Ok
     }
 

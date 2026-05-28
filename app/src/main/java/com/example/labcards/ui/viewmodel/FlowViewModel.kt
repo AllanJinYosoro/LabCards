@@ -8,6 +8,7 @@ import com.example.labcards.data.ContentBlockJson
 import com.example.labcards.data.LabRepository
 import com.example.labcards.data.model.CardContentBlock
 import com.example.labcards.data.model.CardStyle
+import com.example.labcards.data.model.CardTemplateEntity
 import com.example.labcards.data.model.ExperimentCardEntity
 import com.example.labcards.data.model.ExperimentTemplateSummary
 import com.example.labcards.data.model.TimeInputUnit
@@ -67,6 +68,13 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = emptyList()
         )
 
+    val cardTemplates: StateFlow<List<CardTemplateEntity>> =
+        repository.cardTemplates.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
     private val _editorState = MutableStateFlow(ExperimentEditorState())
     val editorState: StateFlow<ExperimentEditorState> = _editorState.asStateFlow()
 
@@ -74,7 +82,14 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     val cardEditorState: StateFlow<CardEditorState> = _cardEditorState.asStateFlow()
 
     fun openEditor(templateId: Long) {
-        if (templateId != 0L && _editorState.value.templateId == templateId && !_editorState.value.isLoading) return
+        val current = _editorState.value
+        if (templateId == 0L && current.templateId == 0L && !current.isLoading) {
+            return
+        }
+        if (templateId != 0L && current.templateId == templateId && !current.isLoading) {
+            return
+        }
+
         viewModelScope.launch {
             _editorState.value = ExperimentEditorState(templateId = templateId, isLoading = true)
             if (templateId == 0L) {
@@ -83,10 +98,10 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val data = repository.getExperiment(templateId)
-            if (data == null) {
-                _editorState.value = ExperimentEditorState(error = "未找到实验流程")
+            _editorState.value = if (data == null) {
+                ExperimentEditorState(error = "未找到实验流程")
             } else {
-                _editorState.value = ExperimentEditorState(
+                ExperimentEditorState(
                     templateId = data.template.id,
                     name = data.template.name,
                     tags = data.template.tags,
@@ -105,14 +120,14 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startCardEdit(index: Int?) {
-        val card = index?.let { _editorState.value.cards.getOrNull(it) }
+        val draft = index?.let { _editorState.value.cards.getOrNull(it) }
             ?: CardDraft(orderIndex = _editorState.value.cards.size)
-        _cardEditorState.value = CardEditorState(index = index, draft = card, error = null)
+        _cardEditorState.value = CardEditorState(index = index, draft = draft, error = null)
     }
 
     fun addTextBlock() = appendBlock(CardContentBlock.TextBlock(newBlockId(), ""))
 
-    fun addNumberBlock() = appendBlock(CardContentBlock.NumberInputBlock(newBlockId(), "", ""))
+    fun addNumberBlock() = appendBlock(CardContentBlock.NumberInputBlock(newBlockId(), "0", ""))
 
     fun addTimeBlock() {
         val state = _cardEditorState.value
@@ -173,23 +188,27 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     fun setFixedTimerEnabled(enabled: Boolean) {
         _cardEditorState.update { state ->
             val hasTimeInput = state.draft.blocks.any { it is CardContentBlock.TimeInputBlock }
-            val draft = if (enabled) {
-                if (hasTimeInput) {
-                    state.draft.copy(hasTimer = true, timerMode = TimerMode.BOUND_TO_TIME_INPUT, fixedTimerDurationSeconds = null)
-                } else {
-                    state.draft.copy(hasTimer = true, timerMode = TimerMode.FIXED, fixedTimerDurationSeconds = state.draft.fixedTimerDurationSeconds ?: 60)
-                }
-            } else {
-                if (hasTimeInput) state.draft else state.draft.copy(hasTimer = false, timerMode = null, fixedTimerDurationSeconds = null)
+            val draft = when {
+                enabled && hasTimeInput -> state.draft.copy(
+                    hasTimer = true,
+                    timerMode = TimerMode.BOUND_TO_TIME_INPUT,
+                    fixedTimerDurationSeconds = null
+                )
+                enabled -> state.draft.copy(
+                    hasTimer = true,
+                    timerMode = TimerMode.FIXED,
+                    fixedTimerDurationSeconds = state.draft.fixedTimerDurationSeconds ?: 60
+                )
+                hasTimeInput -> state.draft
+                else -> state.draft.copy(hasTimer = false, timerMode = null, fixedTimerDurationSeconds = null)
             }
             state.copy(draft = draft, error = null)
         }
     }
 
     fun updateFixedTimer(secondsText: String) {
-        val seconds = secondsText.toLongOrNull()
         _cardEditorState.update {
-            it.copy(draft = it.draft.copy(fixedTimerDurationSeconds = seconds), error = null)
+            it.copy(draft = it.draft.copy(fixedTimerDurationSeconds = secondsText.toLongOrNull()), error = null)
         }
     }
 
@@ -200,6 +219,7 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
             _cardEditorState.value = state.copy(error = validation.message)
             return false
         }
+
         val current = _editorState.value.cards
         val updated = if (state.index == null) {
             current + state.draft.copy(orderIndex = current.size)
@@ -210,12 +230,51 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         }.mapIndexed { index, card -> card.copy(orderIndex = index) }
 
         _editorState.update { it.copy(cards = updated, error = null) }
+        _cardEditorState.update { it.copy(error = null) }
+        saveDraftAsReusableTemplate(state.draft)
         return true
+    }
+
+    private fun saveDraftAsReusableTemplate(draft: CardDraft) {
+        viewModelScope.launch {
+            repository.saveCardTemplate(
+                CardTemplateEntity(
+                    name = draft.templateName(),
+                    contentBlocksJson = ContentBlockJson.encode(draft.blocks),
+                    style = draft.style,
+                    hasTimer = draft.hasTimer,
+                    timerMode = draft.timerMode,
+                    fixedTimerDurationSeconds = draft.fixedTimerDurationSeconds
+                )
+            )
+        }
+    }
+
+    fun addTemplateToCurrentFlow(template: CardTemplateEntity) {
+        val draft = CardDraft(
+            cardTemplateId = template.id,
+            orderIndex = _editorState.value.cards.size,
+            blocks = ContentBlockJson.decode(template.contentBlocksJson),
+            style = template.style,
+            hasTimer = template.hasTimer,
+            timerMode = template.timerMode,
+            fixedTimerDurationSeconds = template.fixedTimerDurationSeconds
+        )
+        _editorState.update { state ->
+            state.copy(
+                cards = (state.cards + draft).mapIndexed { index, card -> card.copy(orderIndex = index) },
+                error = null
+            )
+        }
     }
 
     fun removeCard(index: Int) {
         _editorState.update { state ->
-            state.copy(cards = state.cards.filterIndexed { i, _ -> i != index }.mapIndexed { i, card -> card.copy(orderIndex = i) })
+            state.copy(
+                cards = state.cards
+                    .filterIndexed { i, _ -> i != index }
+                    .mapIndexed { i, card -> card.copy(orderIndex = i) }
+            )
         }
     }
 
@@ -225,7 +284,9 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         if (index !in cards.indices || target !in cards.indices) return
         val card = cards.removeAt(index)
         cards.add(target, card)
-        _editorState.update { it.copy(cards = cards.mapIndexed { i, item -> item.copy(orderIndex = i) }) }
+        _editorState.update {
+            it.copy(cards = cards.mapIndexed { i, item -> item.copy(orderIndex = i) })
+        }
     }
 
     fun saveExperiment(saveAsNew: Boolean = false, onSaved: (Long) -> Unit = {}) {
@@ -295,3 +356,12 @@ private fun CardDraft.toEntity(templateId: Long): ExperimentCardEntity =
     )
 
 private fun newBlockId(): String = UUID.randomUUID().toString()
+
+private fun CardDraft.templateName(): String {
+    val firstText = blocks.filterIsInstance<CardContentBlock.TextBlock>()
+        .firstOrNull { it.text.isNotBlank() }
+        ?.text
+        ?.trim()
+        .orEmpty()
+    return firstText.take(24).ifBlank { "实验卡片" }
+}

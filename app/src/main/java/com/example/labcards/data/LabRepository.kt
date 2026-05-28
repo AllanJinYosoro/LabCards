@@ -1,6 +1,7 @@
 package com.example.labcards.data
 
 import androidx.room.withTransaction
+import com.example.labcards.data.model.CardTemplateEntity
 import com.example.labcards.data.model.ExperimentCardEntity
 import com.example.labcards.data.model.ExperimentTemplateEntity
 import com.example.labcards.data.model.ExperimentTemplateSummary
@@ -15,9 +16,19 @@ data class ExperimentData(
 
 class LabRepository(private val database: AppDatabase) {
     private val experimentDao = database.experimentDao()
+    private val cardDao = database.cardDao()
 
     val experimentSummaries: Flow<List<ExperimentTemplateSummary>> =
         experimentDao.getExperimentSummaries()
+
+    val cardTemplates: Flow<List<CardTemplateEntity>> =
+        cardDao.getAllTemplates()
+
+    suspend fun getCardTemplate(id: Long): CardTemplateEntity? =
+        cardDao.getTemplateById(id)
+
+    suspend fun saveCardTemplate(template: CardTemplateEntity): Long =
+        cardDao.insertTemplate(template)
 
     suspend fun getExperiment(id: Long): ExperimentData? {
         val template = experimentDao.getExperimentTemplateById(id) ?: return null

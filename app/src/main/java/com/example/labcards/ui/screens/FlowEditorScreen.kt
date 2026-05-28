@@ -37,6 +37,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.labcards.data.model.CardStyle
+import com.example.labcards.data.model.CardTemplateEntity
+import com.example.labcards.data.model.TimerMode
+import com.example.labcards.data.ContentBlockJson
 import com.example.labcards.ui.viewmodel.CardDraft
 import com.example.labcards.ui.viewmodel.ExperimentEditorState
 import com.example.labcards.util.CardContentParser
@@ -51,6 +54,8 @@ fun FlowEditorScreen(
     onEditCard: (Int) -> Unit,
     onDeleteCard: (Int) -> Unit,
     onMoveCard: (Int, Int) -> Unit,
+    savedTemplates: List<CardTemplateEntity>,
+    onUseTemplate: (CardTemplateEntity) -> Unit,
     onSave: () -> Unit,
     onSaveAs: () -> Unit,
     onBack: () -> Unit
@@ -69,7 +74,7 @@ fun FlowEditorScreen(
                         Text("另存为")
                     }
                     IconButton(onClick = onSave) {
-                        Icon(Icons.Default.Save, contentDescription = "保存")
+                        Icon(Icons.Default.Save, contentDescription = "保存流程")
                     }
                 }
             )
@@ -109,6 +114,25 @@ fun FlowEditorScreen(
                 )
             }
 
+            if (savedTemplates.isNotEmpty()) {
+                Text(
+                    text = "已保存的卡片模板",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+                Text(
+                    text = "点击“加入流程”即可复用之前保存过的卡片。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                savedTemplates.take(5).forEach { template ->
+                    SavedTemplateItem(
+                        template = template,
+                        onUse = { onUseTemplate(template) }
+                    )
+                }
+            }
+
             if (state.cards.isEmpty()) {
                 Column(
                     modifier = Modifier
@@ -116,12 +140,38 @@ fun FlowEditorScreen(
                         .padding(24.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text("还没有卡片", style = MaterialTheme.typography.titleMedium)
-                    Text("点击右下角按钮添加流程内卡片。")
+                    Text("当前流程还没有卡片", style = MaterialTheme.typography.titleMedium)
+                    Text("保存卡片后，它会显示在这里，并作为当前流程的步骤使用。")
+                    Button(
+                        onClick = onAddCard,
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Text("添加第一张卡片")
+                    }
                 }
             } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("已加入当前流程的卡片", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "这些卡片会按顺序用于实验执行。点击编辑可继续修改。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Button(onClick = onAddCard) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Text("继续添加")
+                    }
+                }
                 LazyColumn(
-                    contentPadding = PaddingValues(vertical = 16.dp),
+                    contentPadding = PaddingValues(vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     itemsIndexed(state.cards) { index, card ->
@@ -136,6 +186,40 @@ fun FlowEditorScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedTemplateItem(
+    template: CardTemplateEntity,
+    onUse: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = styleColor(template.style)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(template.name, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = CardContentParser.parseToAnnotatedString(
+                        ContentBlockJson.decode(template.contentBlocksJson)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            OutlinedButton(onClick = onUse) {
+                Text("加入流程")
             }
         }
     }
@@ -204,6 +288,6 @@ fun styleColor(style: CardStyle): Color = when (style) {
 private fun timerLabel(card: CardDraft): String = when {
     !card.hasTimer -> "无计时器"
     card.timerMode == null -> "计时器未配置"
-    card.timerMode.name == "BOUND_TO_TIME_INPUT" -> "计时器绑定时间输入框"
+    card.timerMode == TimerMode.BOUND_TO_TIME_INPUT -> "计时器绑定时间输入框"
     else -> "固定计时器 ${card.fixedTimerDurationSeconds ?: 0} 秒"
 }
