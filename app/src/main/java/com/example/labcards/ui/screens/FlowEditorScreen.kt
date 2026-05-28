@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -135,60 +136,13 @@ fun FlowEditorScreen(
                 )
             }
 
-            if (state.cards.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text("当前流程还没有卡片", style = MaterialTheme.typography.titleMedium)
-                    Text("保存卡片后，它会显示在这里，并作为当前流程的步骤使用。")
-                    Button(
-                        onClick = onAddCard,
-                        modifier = Modifier.padding(top = 16.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("添加第一张卡片")
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("已加入当前流程的卡片", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "这些卡片会按顺序用于实验执行。点击编辑可继续修改。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Button(onClick = onAddCard) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("继续添加")
-                    }
-                }
-                LazyColumn(
-                    contentPadding = PaddingValues(vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    itemsIndexed(state.cards) { index, card ->
-                        FlowEditorCardItem(
-                            index = index,
-                            count = state.cards.size,
-                            card = card,
-                            onEdit = { onEditCard(index) },
-                            onDelete = { onDeleteCard(index) },
-                            onMoveUp = { onMoveCard(index, -1) },
-                            onMoveDown = { onMoveCard(index, 1) }
-                        )
-                    }
-                }
-            }
+            CurrentFlowSection(
+                cards = state.cards,
+                onAddCard = onAddCard,
+                onEditCard = onEditCard,
+                onDeleteCard = onDeleteCard,
+                onMoveCard = onMoveCard
+            )
         }
     }
 }
@@ -207,32 +161,43 @@ private fun SavedTemplateStrip(
             .height(132.dp)
             .padding(top = 16.dp)
     ) {
-        Text(
-            text = "已保存的卡片模板",
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = "左右滑动查看模板，点击名称查看详情。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        LazyRow(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(76.dp)
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(end = 8.dp)
+                .height(116.dp),
+            colors = CardDefaults.cardColors(containerColor = MonetTemplateSection),
+            shape = RoundedCornerShape(8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            items(templates, key = { it.id }) { template ->
-                TemplateNameCard(
-                    template = template,
-                    onClick = { selectedTemplate = template }
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(
+                    text = "已保存的卡片模板",
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Text(
+                    text = "左右滑动查看模板，点击名称查看详情。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(62.dp)
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(end = 8.dp)
+                ) {
+                    items(templates, key = { it.id }) { template ->
+                        TemplateNameCard(
+                            template = template,
+                            onClick = { selectedTemplate = template }
+                        )
+                    }
+                }
             }
         }
     }
@@ -261,7 +226,7 @@ private fun TemplateNameCard(
     Card(
         modifier = Modifier
             .width(148.dp)
-            .height(68.dp)
+            .height(56.dp)
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = styleColor(template.style)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -276,6 +241,73 @@ private fun TemplateNameCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun CurrentFlowSection(
+    cards: List<CardDraft>,
+    onAddCard: () -> Unit,
+    onEditCard: (Int) -> Unit,
+    onDeleteCard: (Int) -> Unit,
+    onMoveCard: (Int, Int) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = MonetFlowSection),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("已加入当前流程的卡片", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "按顺序执行；点击编辑可继续修改。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (cards.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("当前流程还没有卡片", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = "点击右下角 + 添加第一张卡片，或从上方模板加入流程。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = onAddCard) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Text("添加第一张卡片")
+                    }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    itemsIndexed(cards) { index, card ->
+                        FlowEditorCardItem(
+                            index = index,
+                            count = cards.size,
+                            card = card,
+                            onEdit = { onEditCard(index) },
+                            onDelete = { onDeleteCard(index) },
+                            onMoveUp = { onMoveCard(index, -1) },
+                            onMoveDown = { onMoveCard(index, 1) }
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -407,3 +439,6 @@ private fun timerLabel(card: CardDraft): String = when {
     card.timerMode == TimerMode.BOUND_TO_TIME_INPUT -> "计时器绑定时间输入框"
     else -> "固定计时器 ${card.fixedTimerDurationSeconds ?: 0} 秒"
 }
+
+private val MonetTemplateSection = Color(0xFFEAF4F1)
+private val MonetFlowSection = Color(0xFFF3EEF8)
