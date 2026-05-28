@@ -1,5 +1,6 @@
 package com.example.labcards.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,8 +8,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -33,13 +38,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.labcards.data.ContentBlockJson
 import com.example.labcards.data.model.CardStyle
 import com.example.labcards.data.model.CardTemplateEntity
 import com.example.labcards.data.model.TimerMode
-import com.example.labcards.data.ContentBlockJson
 import com.example.labcards.ui.viewmodel.CardDraft
 import com.example.labcards.ui.viewmodel.ExperimentEditorState
 import com.example.labcards.util.CardContentParser
@@ -115,22 +127,10 @@ fun FlowEditorScreen(
             }
 
             if (savedTemplates.isNotEmpty()) {
-                Text(
-                    text = "已保存的卡片模板",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp)
+                SavedTemplateStrip(
+                    templates = savedTemplates,
+                    onUseTemplate = onUseTemplate
                 )
-                Text(
-                    text = "点击“加入流程”即可复用之前保存过的卡片。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                savedTemplates.take(5).forEach { template ->
-                    SavedTemplateItem(
-                        template = template,
-                        onUse = { onUseTemplate(template) }
-                    )
-                }
             }
 
             if (state.cards.isEmpty()) {
@@ -192,37 +192,133 @@ fun FlowEditorScreen(
 }
 
 @Composable
-private fun SavedTemplateItem(
+private fun SavedTemplateStrip(
+    templates: List<CardTemplateEntity>,
+    onUseTemplate: (CardTemplateEntity) -> Unit
+) {
+    var selectedTemplate by remember { mutableStateOf<CardTemplateEntity?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(132.dp)
+            .padding(top = 16.dp)
+    ) {
+        Text(
+            text = "已保存的卡片模板",
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "左右滑动查看模板，点击名称查看详情。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(76.dp)
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 8.dp)
+        ) {
+            items(templates, key = { it.id }) { template ->
+                TemplateNameCard(
+                    template = template,
+                    onClick = { selectedTemplate = template }
+                )
+            }
+        }
+    }
+
+    selectedTemplate?.let { template ->
+        TemplateDetailDialog(
+            template = template,
+            onDismiss = { selectedTemplate = null },
+            onUse = {
+                onUseTemplate(template)
+                selectedTemplate = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun TemplateNameCard(
     template: CardTemplateEntity,
-    onUse: () -> Unit
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
+            .width(148.dp)
+            .height(68.dp)
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = styleColor(template.style)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = template.name,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun TemplateDetailDialog(
+    template: CardTemplateEntity,
+    onDismiss: () -> Unit,
+    onUse: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnClickOutside = true)
+    ) {
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(20.dp),
+            colors = CardDefaults.cardColors(containerColor = styleColor(template.style)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(template.name, style = MaterialTheme.typography.labelLarge)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(template.name, style = MaterialTheme.typography.titleMedium)
                 Text(
                     text = CardContentParser.parseToAnnotatedString(
                         ContentBlockJson.decode(template.contentBlocksJson)
                     ),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
-            }
-            OutlinedButton(onClick = onUse) {
-                Text("加入流程")
+                Text(
+                    text = timerLabel(template),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(onClick = onUse, modifier = Modifier.fillMaxWidth()) {
+                    Text("加入流程")
+                }
             }
         }
     }
+}
+
+private fun timerLabel(template: CardTemplateEntity): String = when {
+    !template.hasTimer -> "无计时器"
+    template.timerMode == null -> "计时器未配置"
+    template.timerMode == TimerMode.BOUND_TO_TIME_INPUT -> "计时器绑定时间输入框"
+    else -> "固定计时器 ${template.fixedTimerDurationSeconds ?: 0} 秒"
 }
 
 @Composable
