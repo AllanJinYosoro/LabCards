@@ -100,6 +100,10 @@ class MainActivity : ComponentActivity() {
                                 onMoveCard = flowViewModel::moveCard,
                                 savedTemplates = cardTemplates,
                                 onUseTemplate = flowViewModel::addTemplateToCurrentFlow,
+                                onEditTemplate = { templateId ->
+                                    flowViewModel.startTemplateEdit(templateId)
+                                    navController.navigate(Screen.CardEditor.createRoute(null))
+                                },
                                 onDeleteTemplate = flowViewModel::deleteCardTemplate,
                                 onSave = { flowViewModel.saveExperiment { navController.popBackStack() } },
                                 onSaveAs = { flowViewModel.saveExperiment(saveAsNew = true) { navController.popBackStack() } },

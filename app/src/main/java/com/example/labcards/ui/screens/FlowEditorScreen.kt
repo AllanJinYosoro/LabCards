@@ -69,6 +69,7 @@ fun FlowEditorScreen(
     onMoveCard: (Int, Int) -> Unit,
     savedTemplates: List<CardTemplateEntity>,
     onUseTemplate: (CardTemplateEntity) -> Unit,
+    onEditTemplate: (Long) -> Unit,
     onDeleteTemplate: (Long) -> Unit,
     onSave: () -> Unit,
     onSaveAs: () -> Unit,
@@ -132,6 +133,7 @@ fun FlowEditorScreen(
                 SavedTemplateStrip(
                     templates = savedTemplates,
                     onUseTemplate = onUseTemplate,
+                    onEditTemplate = onEditTemplate,
                     onDeleteTemplate = onDeleteTemplate
                 )
             }
@@ -151,6 +153,7 @@ fun FlowEditorScreen(
 private fun SavedTemplateStrip(
     templates: List<CardTemplateEntity>,
     onUseTemplate: (CardTemplateEntity) -> Unit,
+    onEditTemplate: (Long) -> Unit,
     onDeleteTemplate: (Long) -> Unit
 ) {
     var selectedTemplate by remember { mutableStateOf<CardTemplateEntity?>(null) }
@@ -206,6 +209,10 @@ private fun SavedTemplateStrip(
         TemplateDetailDialog(
             template = template,
             onDismiss = { selectedTemplate = null },
+            onEdit = {
+                onEditTemplate(template.id)
+                selectedTemplate = null
+            },
             onDelete = {
                 onDeleteTemplate(template.id)
                 selectedTemplate = null
@@ -316,6 +323,7 @@ private fun CurrentFlowSection(
 private fun TemplateDetailDialog(
     template: CardTemplateEntity,
     onDismiss: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     onUse: () -> Unit
 ) {
@@ -343,8 +351,13 @@ private fun TemplateDetailDialog(
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "删除模板")
+                    Row {
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, contentDescription = "编辑模板")
+                        }
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除模板")
+                        }
                     }
                 }
                 Text(
