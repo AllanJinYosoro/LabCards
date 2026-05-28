@@ -16,6 +16,7 @@ import com.example.labcards.data.model.TimerMode
 import com.example.labcards.domain.LabValidators
 import com.example.labcards.domain.ValidationResult
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -171,17 +172,39 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addTextBlock() = appendBlock(CardContentBlock.TextBlock(newBlockId(), ""))
+    fun addTextBlock() = insertBlocksAfter(null, listOf(CardContentBlock.TextBlock(newBlockId(), "")))
 
-    fun addNumberBlock() = appendBlock(CardContentBlock.NumberInputBlock(newBlockId(), "0", ""))
+    fun addTextBlockAfter(afterBlockId: String?) =
+        insertBlocksAfter(afterBlockId, listOf(CardContentBlock.TextBlock(newBlockId(), "")))
+
+    fun addNumberBlock() = addNumberBlockAfter(null)
+
+    fun addNumberBlockAfter(afterBlockId: String?) =
+        insertBlocksAfter(
+            afterBlockId,
+            listOf(
+                CardContentBlock.NumberInputBlock(newBlockId(), "0", ""),
+                CardContentBlock.TextBlock(newBlockId(), "")
+            )
+        )
 
     fun addTimeBlock() {
+        addTimeBlockAfter(null)
+    }
+
+    fun addTimeBlockAfter(afterBlockId: String?) {
         val state = _cardEditorState.value
         if (state.draft.blocks.any { it is CardContentBlock.TimeInputBlock }) {
             _cardEditorState.value = state.copy(error = "一张卡片最多只能有一个时间输入框")
             return
         }
-        appendBlock(CardContentBlock.TimeInputBlock(newBlockId(), 60, TimeInputUnit.SECONDS))
+        insertBlocksAfter(
+            afterBlockId,
+            listOf(
+                CardContentBlock.TimeInputBlock(newBlockId(), 60, TimeInputUnit.SECONDS),
+                CardContentBlock.TextBlock(newBlockId(), "")
+            )
+        )
         _cardEditorState.update {
             it.copy(
                 draft = it.draft.copy(
@@ -194,9 +217,15 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun appendBlock(block: CardContentBlock) {
-        _cardEditorState.update {
-            it.copy(draft = it.draft.copy(blocks = it.draft.blocks + block), error = null)
+    private fun insertBlocksAfter(afterBlockId: String?, newBlocks: List<CardContentBlock>) {
+        _cardEditorState.update { state ->
+            val blocks = state.draft.blocks
+            val targetIndex = afterBlockId?.let { id -> blocks.indexOfFirst { it.id == id } } ?: -1
+            val insertIndex = if (targetIndex >= 0) targetIndex + 1 else blocks.size
+            val updated = blocks.toMutableList().apply {
+                addAll(insertIndex, newBlocks)
+            }
+            state.copy(draft = state.draft.copy(blocks = updated), error = null)
         }
     }
 
@@ -402,6 +431,9 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     fun getCardsForTemplate(templateId: Long): StateFlow<List<ExperimentCardEntity>> =
         repository.observeCards(templateId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun observeCardsForTemplate(templateId: Long): Flow<List<ExperimentCardEntity>> =
+        repository.observeCards(templateId)
 }
 
 private fun ExperimentCardEntity.toDraft(): CardDraft =

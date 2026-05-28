@@ -9,7 +9,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import com.example.labcards.data.model.ExperimentCardEntity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -108,9 +110,9 @@ class MainActivity : ComponentActivity() {
                             val cardState by flowViewModel.cardEditorState.collectAsState()
                             CardEditScreen(
                                 state = cardState,
-                                onAddText = flowViewModel::addTextBlock,
-                                onAddNumber = flowViewModel::addNumberBlock,
-                                onAddTime = flowViewModel::addTimeBlock,
+                                onAddText = flowViewModel::addTextBlockAfter,
+                                onAddNumber = flowViewModel::addNumberBlockAfter,
+                                onAddTime = flowViewModel::addTimeBlockAfter,
                                 onUpdateBlock = flowViewModel::updateBlock,
                                 onRemoveBlock = flowViewModel::removeBlock,
                                 onStyleChange = flowViewModel::updateCardStyle,
@@ -126,7 +128,10 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(Screen.Execution.route) { backStackEntry ->
                             val templateId = backStackEntry.arguments?.getString("templateId")?.toLongOrNull() ?: 0L
-                            val cards by flowViewModel.getCardsForTemplate(templateId).collectAsState()
+                            val cardsFlow = remember(templateId) {
+                                flowViewModel.observeCardsForTemplate(templateId)
+                            }
+                            val cards by cardsFlow.collectAsState(initial = null as List<ExperimentCardEntity>?)
                             ExecutionScreen(
                                 cards = cards,
                                 onComplete = { navController.popBackStack() },

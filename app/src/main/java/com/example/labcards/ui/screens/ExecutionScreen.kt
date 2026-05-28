@@ -54,19 +54,21 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExecutionScreen(
-    cards: List<ExperimentCardEntity>,
+    cards: List<ExperimentCardEntity>?,
     onComplete: () -> Unit,
     onBack: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var currentIndex by remember(cards) { mutableIntStateOf(0) }
-    var completedCount by remember(cards) { mutableIntStateOf(0) }
+    val cardList = cards.orEmpty()
+    val cardIds = cardList.map { it.id }
+    var currentIndex by remember(cardIds) { mutableIntStateOf(0) }
+    var completedCount by remember(cardIds) { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("实验执行 ${completedCount}/${cards.size}") },
+                title = { Text("实验执行 ${completedCount}/${cardList.size}") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -75,7 +77,17 @@ fun ExecutionScreen(
             )
         }
     ) { padding ->
-        if (cards.isEmpty()) {
+        if (cards == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text("正在加载实验流程...")
+            }
+        } else if (cardList.isEmpty()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -85,7 +97,7 @@ fun ExecutionScreen(
             ) {
                 Text("这个流程还没有卡片")
             }
-        } else if (completedCount >= cards.size) {
+        } else if (completedCount >= cardList.size) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -108,7 +120,7 @@ fun ExecutionScreen(
                 contentPadding = PaddingValues(16.dp, 96.dp, 16.dp, 160.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                itemsIndexed(cards, key = { _, card -> card.id }) { index, card ->
+                itemsIndexed(cardList, key = { _, card -> card.id }) { index, card ->
                     ExecutionCardItem(
                         card = card,
                         isCurrent = index == currentIndex,
@@ -116,8 +128,8 @@ fun ExecutionScreen(
                         onFinish = {
                             if (index != currentIndex) return@ExecutionCardItem
                             completedCount += 1
-                            if (completedCount >= cards.size) {
-                                currentIndex = cards.lastIndex
+                            if (completedCount >= cardList.size) {
+                                currentIndex = cardList.lastIndex
                             } else {
                                 currentIndex = completedCount
                                 scope.launch { listState.animateScrollToItem(currentIndex) }
