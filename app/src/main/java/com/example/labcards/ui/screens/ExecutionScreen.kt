@@ -1,5 +1,11 @@
 package com.example.labcards.ui.screens
 
+import android.content.Context
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -188,6 +195,7 @@ private fun ExecutionCardItem(
 
 @Composable
 private fun TimerControls(initialDuration: Long) {
+    val context = LocalContext.current
     var timeLeft by remember(initialDuration) { mutableLongStateOf(initialDuration) }
     var timerState by remember(initialDuration) { mutableStateOf(TimerState.IDLE) }
     var customExtend by remember { mutableStateOf("") }
@@ -197,6 +205,12 @@ private fun TimerControls(initialDuration: Long) {
             delay(1_000)
             timeLeft -= 1
             if (timeLeft == 0L) timerState = TimerState.FINISHED
+        }
+    }
+
+    LaunchedEffect(timerState) {
+        if (timerState == TimerState.FINISHED) {
+            notifyTimerFinished(context)
         }
     }
 
@@ -254,6 +268,38 @@ private fun TimerControls(initialDuration: Long) {
                 Text("延长")
             }
         }
+    }
+}
+
+private fun notifyTimerFinished(context: Context) {
+    vibrateTimerFinished(context)
+    playTimerFinishedSound(context)
+}
+
+private fun vibrateTimerFinished(context: Context) {
+    val pattern = longArrayOf(0, 450, 180, 450, 180, 700)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+        vibratorManager?.defaultVibrator?.vibrate(
+            VibrationEffect.createWaveform(pattern, -1)
+        )
+    } else {
+        @Suppress("DEPRECATION")
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(pattern, -1)
+        }
+    }
+}
+
+private fun playTimerFinishedSound(context: Context) {
+    val alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    runCatching {
+        RingtoneManager.getRingtone(context.applicationContext, alertUri)?.play()
     }
 }
 
