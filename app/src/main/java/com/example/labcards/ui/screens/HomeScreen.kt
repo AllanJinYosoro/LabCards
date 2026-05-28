@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun HomeScreen(
     onNavigateToFlows: () -> Unit,
+    onNavigateToCardRepository: () -> Unit,
     onNavigateToCalculator: () -> Unit
 ) {
     Column(
@@ -45,6 +47,13 @@ fun HomeScreen(
             description = "创建、编辑并执行实验步骤卡片",
             icon = { Icon(Icons.Default.PlayArrow, contentDescription = null) },
             onClick = onNavigateToFlows
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        HomeEntry(
+            title = "卡片仓库",
+            description = "管理可复用的实验步骤卡片模板",
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            onClick = onNavigateToCardRepository
         )
         Spacer(modifier = Modifier.height(16.dp))
         HomeEntry(

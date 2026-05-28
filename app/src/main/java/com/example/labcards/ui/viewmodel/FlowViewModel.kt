@@ -52,9 +52,17 @@ data class ExperimentEditorState(
     val lastSavedId: Long? = null
 )
 
+enum class CardEditorMode {
+    FLOW_CARD,
+    TEMPLATE
+}
+
 data class CardEditorState(
     val index: Int? = null,
+    val templateId: Long? = null,
+    val mode: CardEditorMode = CardEditorMode.FLOW_CARD,
     val draft: CardDraft = CardDraft(),
+    val isLoading: Boolean = false,
     val error: String? = null
 )
 
@@ -122,7 +130,45 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
     fun startCardEdit(index: Int?) {
         val draft = index?.let { _editorState.value.cards.getOrNull(it) }
             ?: CardDraft(orderIndex = _editorState.value.cards.size)
-        _cardEditorState.value = CardEditorState(index = index, draft = draft, error = null)
+        _cardEditorState.value = CardEditorState(
+            index = index,
+            mode = CardEditorMode.FLOW_CARD,
+            draft = draft,
+            error = null
+        )
+    }
+
+    fun startTemplateCreate() {
+        _cardEditorState.value = CardEditorState(
+            templateId = null,
+            mode = CardEditorMode.TEMPLATE,
+            draft = CardDraft(),
+            error = null
+        )
+    }
+
+    fun startTemplateEdit(templateId: Long) {
+        _cardEditorState.value = CardEditorState(
+            templateId = templateId,
+            mode = CardEditorMode.TEMPLATE,
+            draft = CardDraft(),
+            isLoading = true,
+            error = null
+        )
+        viewModelScope.launch {
+            val template = repository.getCardTemplate(templateId)
+            if (template == null) {
+                _cardEditorState.update { it.copy(isLoading = false, error = "未找到卡片模板") }
+                return@launch
+            }
+            _cardEditorState.value = CardEditorState(
+                templateId = template.id,
+                mode = CardEditorMode.TEMPLATE,
+                draft = template.toDraft(),
+                isLoading = false,
+                error = null
+            )
+        }
     }
 
     fun addTextBlock() = appendBlock(CardContentBlock.TextBlock(newBlockId(), ""))
@@ -214,6 +260,11 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
 
     fun commitCardDraft(): Boolean {
         val state = _cardEditorState.value
+        if (state.mode == CardEditorMode.TEMPLATE) {
+            commitTemplateDraft()
+            return state.draft.validation().isValid
+        }
+
         val validation = state.draft.validation()
         if (!validation.isValid) {
             _cardEditorState.value = state.copy(error = validation.message)
@@ -235,19 +286,46 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
-    private fun saveDraftAsReusableTemplate(draft: CardDraft) {
+    fun commitCardEditor(onSaved: () -> Unit = {}) {
+        val state = _cardEditorState.value
+        if (state.mode == CardEditorMode.TEMPLATE) {
+            commitTemplateDraft(onSaved)
+            return
+        }
+        if (commitCardDraft()) {
+            onSaved()
+        }
+    }
+
+    private fun commitTemplateDraft(onSaved: () -> Unit = {}) {
+        val state = _cardEditorState.value
+        val validation = state.draft.validation()
+        if (!validation.isValid) {
+            _cardEditorState.value = state.copy(error = validation.message)
+            return
+        }
+
         viewModelScope.launch {
+            val old = state.templateId?.let { repository.getCardTemplate(it) }
             repository.saveCardTemplate(
-                CardTemplateEntity(
-                    name = draft.templateName(),
-                    contentBlocksJson = ContentBlockJson.encode(draft.blocks),
-                    style = draft.style,
-                    hasTimer = draft.hasTimer,
-                    timerMode = draft.timerMode,
-                    fixedTimerDurationSeconds = draft.fixedTimerDurationSeconds
+                state.draft.toTemplateEntity(
+                    templateId = state.templateId ?: 0L,
+                    createdAt = old?.createdAt ?: System.currentTimeMillis()
                 )
             )
+            _cardEditorState.update { it.copy(error = null) }
+            onSaved()
         }
+    }
+
+    private fun saveDraftAsReusableTemplate(draft: CardDraft) {
+        viewModelScope.launch {
+            repository.saveCardTemplate(draft.toTemplateEntity())
+        }
+    }
+
+    fun deleteCardTemplate(templateId: Long) {
+        viewModelScope.launch { repository.deleteCardTemplate(templateId) }
     }
 
     fun addTemplateToCurrentFlow(template: CardTemplateEntity) {
@@ -340,12 +418,39 @@ private fun ExperimentCardEntity.toDraft(): CardDraft =
         createdAt = createdAt
     )
 
+private fun CardTemplateEntity.toDraft(): CardDraft =
+    CardDraft(
+        cardTemplateId = id,
+        blocks = ContentBlockJson.decode(contentBlocksJson),
+        style = style,
+        hasTimer = hasTimer,
+        timerMode = timerMode,
+        fixedTimerDurationSeconds = fixedTimerDurationSeconds,
+        createdAt = createdAt
+    )
+
 private fun CardDraft.toEntity(templateId: Long): ExperimentCardEntity =
     ExperimentCardEntity(
         id = id,
         experimentTemplateId = templateId,
         cardTemplateId = cardTemplateId,
         orderIndex = orderIndex,
+        contentBlocksJson = ContentBlockJson.encode(blocks),
+        style = style,
+        hasTimer = hasTimer,
+        timerMode = timerMode,
+        fixedTimerDurationSeconds = fixedTimerDurationSeconds,
+        createdAt = createdAt,
+        updatedAt = System.currentTimeMillis()
+    )
+
+private fun CardDraft.toTemplateEntity(
+    templateId: Long = 0L,
+    createdAt: Long = System.currentTimeMillis()
+): CardTemplateEntity =
+    CardTemplateEntity(
+        id = templateId,
+        name = templateName(),
         contentBlocksJson = ContentBlockJson.encode(blocks),
         style = style,
         hasTimer = hasTimer,

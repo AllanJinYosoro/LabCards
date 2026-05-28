@@ -68,6 +68,7 @@ fun FlowEditorScreen(
     onMoveCard: (Int, Int) -> Unit,
     savedTemplates: List<CardTemplateEntity>,
     onUseTemplate: (CardTemplateEntity) -> Unit,
+    onDeleteTemplate: (Long) -> Unit,
     onSave: () -> Unit,
     onSaveAs: () -> Unit,
     onBack: () -> Unit
@@ -129,7 +130,8 @@ fun FlowEditorScreen(
             if (savedTemplates.isNotEmpty()) {
                 SavedTemplateStrip(
                     templates = savedTemplates,
-                    onUseTemplate = onUseTemplate
+                    onUseTemplate = onUseTemplate,
+                    onDeleteTemplate = onDeleteTemplate
                 )
             }
 
@@ -194,7 +196,8 @@ fun FlowEditorScreen(
 @Composable
 private fun SavedTemplateStrip(
     templates: List<CardTemplateEntity>,
-    onUseTemplate: (CardTemplateEntity) -> Unit
+    onUseTemplate: (CardTemplateEntity) -> Unit,
+    onDeleteTemplate: (Long) -> Unit
 ) {
     var selectedTemplate by remember { mutableStateOf<CardTemplateEntity?>(null) }
 
@@ -238,6 +241,10 @@ private fun SavedTemplateStrip(
         TemplateDetailDialog(
             template = template,
             onDismiss = { selectedTemplate = null },
+            onDelete = {
+                onDeleteTemplate(template.id)
+                selectedTemplate = null
+            },
             onUse = {
                 onUseTemplate(template)
                 selectedTemplate = null
@@ -277,6 +284,7 @@ private fun TemplateNameCard(
 private fun TemplateDetailDialog(
     template: CardTemplateEntity,
     onDismiss: () -> Unit,
+    onDelete: () -> Unit,
     onUse: () -> Unit
 ) {
     Dialog(
@@ -294,7 +302,19 @@ private fun TemplateDetailDialog(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(template.name, style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = template.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "删除模板")
+                    }
+                }
                 Text(
                     text = CardContentParser.parseToAnnotatedString(
                         ContentBlockJson.decode(template.contentBlocksJson)

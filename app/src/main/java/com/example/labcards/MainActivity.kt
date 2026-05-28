@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.labcards.ui.Screen
 import com.example.labcards.ui.screens.CalculatorHomeScreen
 import com.example.labcards.ui.screens.CardEditScreen
+import com.example.labcards.ui.screens.CardRepositoryScreen
 import com.example.labcards.ui.screens.DilutionCalcScreen
 import com.example.labcards.ui.screens.ExecutionScreen
 import com.example.labcards.ui.screens.FlowEditorScreen
@@ -48,7 +49,23 @@ class MainActivity : ComponentActivity() {
                         composable(Screen.Home.route) {
                             HomeScreen(
                                 onNavigateToFlows = { navController.navigate(Screen.FlowList.route) },
+                                onNavigateToCardRepository = { navController.navigate(Screen.CardRepository.route) },
                                 onNavigateToCalculator = { navController.navigate(Screen.CalculatorHome.route) }
+                            )
+                        }
+                        composable(Screen.CardRepository.route) {
+                            CardRepositoryScreen(
+                                templates = cardTemplates,
+                                onCreate = {
+                                    flowViewModel.startTemplateCreate()
+                                    navController.navigate(Screen.CardEditor.createRoute(null))
+                                },
+                                onEdit = { templateId ->
+                                    flowViewModel.startTemplateEdit(templateId)
+                                    navController.navigate(Screen.CardEditor.createRoute(null))
+                                },
+                                onDelete = flowViewModel::deleteCardTemplate,
+                                onBack = { navController.popBackStack() }
                             )
                         }
                         composable(Screen.FlowList.route) {
@@ -81,6 +98,7 @@ class MainActivity : ComponentActivity() {
                                 onMoveCard = flowViewModel::moveCard,
                                 savedTemplates = cardTemplates,
                                 onUseTemplate = flowViewModel::addTemplateToCurrentFlow,
+                                onDeleteTemplate = flowViewModel::deleteCardTemplate,
                                 onSave = { flowViewModel.saveExperiment { navController.popBackStack() } },
                                 onSaveAs = { flowViewModel.saveExperiment(saveAsNew = true) { navController.popBackStack() } },
                                 onBack = { navController.popBackStack() }
@@ -99,7 +117,7 @@ class MainActivity : ComponentActivity() {
                                 onFixedTimerEnabledChange = flowViewModel::setFixedTimerEnabled,
                                 onFixedTimerChange = flowViewModel::updateFixedTimer,
                                 onSave = {
-                                    if (flowViewModel.commitCardDraft()) {
+                                    flowViewModel.commitCardEditor {
                                         navController.popBackStack()
                                     }
                                 },

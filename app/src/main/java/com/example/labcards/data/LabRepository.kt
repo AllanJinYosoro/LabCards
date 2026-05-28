@@ -30,6 +30,11 @@ class LabRepository(private val database: AppDatabase) {
     suspend fun saveCardTemplate(template: CardTemplateEntity): Long =
         cardDao.insertTemplate(template)
 
+    suspend fun deleteCardTemplate(templateId: Long) {
+        val template = cardDao.getTemplateById(templateId) ?: return
+        cardDao.deleteTemplate(template)
+    }
+
     suspend fun getExperiment(id: Long): ExperimentData? {
         val template = experimentDao.getExperimentTemplateById(id) ?: return null
         return ExperimentData(

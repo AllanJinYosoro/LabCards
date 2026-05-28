@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.example.labcards.data.model.CardContentBlock
 import com.example.labcards.data.model.CardStyle
 import com.example.labcards.data.model.TimeInputUnit
+import com.example.labcards.ui.viewmodel.CardEditorMode
 import com.example.labcards.ui.viewmodel.CardEditorState
 import com.example.labcards.util.CardContentParser
 
@@ -59,7 +60,16 @@ fun CardEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (state.index == null) "添加卡片" else "编辑卡片") },
+                title = {
+                    Text(
+                        when {
+                            state.mode == CardEditorMode.TEMPLATE && state.templateId == null -> "新建卡片模板"
+                            state.mode == CardEditorMode.TEMPLATE -> "编辑卡片模板"
+                            state.index == null -> "添加卡片"
+                            else -> "编辑卡片"
+                        }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -75,40 +85,46 @@ fun CardEditScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            state.error?.let { error ->
+            if (state.isLoading) {
                 item {
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                    Text("正在加载卡片模板...", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
+
+                state.error?.let { error ->
+                    item {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onAddText) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Text("文本")
+                        }
+                        Button(onClick = onAddNumber) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Text("数字")
+                        }
+                        Button(onClick = onAddTime, enabled = !hasTimeInput) {
+                            Icon(Icons.Default.AccessTime, contentDescription = null)
+                            Text("时间")
+                        }
+                    }
+                }
+
+                items(state.draft.blocks, key = { it.id }) { block ->
+                    ContentBlockEditor(
+                        block = block,
+                        onUpdateBlock = onUpdateBlock,
+                        onRemoveBlock = onRemoveBlock
                     )
                 }
-            }
-
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onAddText) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("文本")
-                    }
-                    Button(onClick = onAddNumber) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Text("数字")
-                    }
-                    Button(onClick = onAddTime, enabled = !hasTimeInput) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null)
-                        Text("时间")
-                    }
-                }
-            }
-
-            items(state.draft.blocks, key = { it.id }) { block ->
-                ContentBlockEditor(
-                    block = block,
-                    onUpdateBlock = onUpdateBlock,
-                    onRemoveBlock = onRemoveBlock
-                )
-            }
 
             item {
                 Text("卡片样式", style = MaterialTheme.typography.titleSmall)
@@ -176,8 +192,16 @@ fun CardEditScreen(
 
             item {
                 Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (state.index == null) "保存到当前流程" else "更新当前卡片")
+                    Text(
+                        when {
+                            state.mode == CardEditorMode.TEMPLATE && state.templateId == null -> "保存到卡片仓库"
+                            state.mode == CardEditorMode.TEMPLATE -> "更新卡片模板"
+                            state.index == null -> "保存到当前流程"
+                            else -> "更新当前卡片"
+                        }
+                    )
                 }
+            }
             }
         }
     }

@@ -3,6 +3,7 @@ package com.example.labcards.ui
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object FlowList : Screen("flow_list")
+    object CardRepository : Screen("card_repository")
     object FlowEditor : Screen("flow_editor/{templateId}") {
         fun createRoute(templateId: Long) = "flow_editor/$templateId"
     }
