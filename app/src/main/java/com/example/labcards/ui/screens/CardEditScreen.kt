@@ -471,25 +471,61 @@ private fun SelectedSymbolEditor(
                 }
 
                 is CardContentBlock.TimeInputBlock -> {
-                    OutlinedTextField(
-                        value = block.valueSeconds.toString(),
-                        onValueChange = {
-                            onUpdateBlock(
-                                block.id,
-                                block.copy(
-                                    valueSeconds = it.toLongOrNull() ?: 0L,
-                                    unit = TimeInputUnit.SECONDS
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = timeInputDisplayValue(block),
+                            onValueChange = {
+                                onUpdateBlock(
+                                    block.id,
+                                    block.copy(
+                                        valueSeconds = parseTimeInputSeconds(it, block.unit),
+                                        unit = block.unit
+                                    )
                                 )
-                            )
-                        },
-                        label = { Text("倒计时秒数") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                            },
+                            label = { Text("时间") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = block.unit == TimeInputUnit.MINUTES,
+                            onClick = {
+                                onUpdateBlock(
+                                    block.id,
+                                    block.copy(unit = TimeInputUnit.MINUTES)
+                                )
+                            },
+                            label = { Text("min") }
+                        )
+                        FilterChip(
+                            selected = block.unit == TimeInputUnit.SECONDS,
+                            onClick = {
+                                onUpdateBlock(
+                                    block.id,
+                                    block.copy(unit = TimeInputUnit.SECONDS)
+                                )
+                            },
+                            label = { Text("second") }
+                        )
+                    }
                 }
 
                 is CardContentBlock.TextBlock -> Unit
             }
         }
+    }
+}
+
+private fun timeInputDisplayValue(block: CardContentBlock.TimeInputBlock): String =
+    when (block.unit) {
+        TimeInputUnit.MINUTES -> (block.valueSeconds / 60).toString()
+        else -> block.valueSeconds.toString()
+    }
+
+private fun parseTimeInputSeconds(value: String, unit: TimeInputUnit): Long {
+    val number = value.toLongOrNull() ?: 0L
+    return when (unit) {
+        TimeInputUnit.MINUTES -> number * 60
+        else -> number
     }
 }
