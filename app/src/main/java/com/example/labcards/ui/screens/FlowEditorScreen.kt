@@ -440,10 +440,10 @@ private fun FlowEditorCardItem(
 
 @Composable
 fun styleColor(style: CardStyle): Color = when (style) {
-    CardStyle.NORMAL -> MaterialTheme.colorScheme.surface
-    CardStyle.DANGER -> Color(0xFFFFEBEE)
-    CardStyle.WARNING -> Color(0xFFFFF8E1)
-    CardStyle.INFO -> Color(0xFFE3F2FD)
+    CardStyle.NORMAL -> Color(0xFFF9FAF7)
+    CardStyle.DANGER -> Color(0xFFFFCDD2)
+    CardStyle.WARNING -> Color(0xFFFFECB3)
+    CardStyle.INFO -> Color(0xFFBBDEFB)
 }
 
 private fun timerLabel(card: CardDraft): String = when {
@@ -453,5 +453,5 @@ private fun timerLabel(card: CardDraft): String = when {
     else -> "固定计时器 ${card.fixedTimerDurationSeconds ?: 0} 秒"
 }
 
-private val MonetTemplateSection = Color(0xFFEAF4F1)
-private val MonetFlowSection = Color(0xFFF3EEF8)
+private val MonetTemplateSection = Color(0xFFDCEFEA)
+private val MonetFlowSection = Color(0xFFE9DFF3)
