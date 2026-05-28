@@ -103,13 +103,30 @@ fun CardEditScreen(
         },
         bottomBar = {
             if (!state.isLoading) {
-                Button(
-                    onClick = onSave,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    Text(saveText)
+                    if (selectedBlock is CardContentBlock.NumberInputBlock || selectedBlock is CardContentBlock.TimeInputBlock) {
+                        SelectedSymbolEditor(
+                            block = selectedBlock,
+                            onUpdateBlock = onUpdateBlock,
+                            onRemoveBlock = {
+                                selectedBlockId = null
+                                selectedTextOffset = null
+                                onRemoveBlock(selectedBlock.id)
+                            }
+                        )
+                    }
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp)
+                    ) {
+                        Text(saveText)
+                    }
                 }
             }
         }
@@ -160,22 +177,6 @@ fun CardEditScreen(
                             },
                             onUpdateBlock = onUpdateBlock
                         )
-                    }
-
-                    selectedBlock?.let { block ->
-                        if (block is CardContentBlock.NumberInputBlock || block is CardContentBlock.TimeInputBlock) {
-                            item {
-                                SelectedSymbolEditor(
-                                    block = block,
-                                    onUpdateBlock = onUpdateBlock,
-                                    onRemoveBlock = {
-                                        selectedBlockId = null
-                                        selectedTextOffset = null
-                                        onRemoveBlock(block.id)
-                                    }
-                                )
-                            }
-                        }
                     }
 
                     item {
