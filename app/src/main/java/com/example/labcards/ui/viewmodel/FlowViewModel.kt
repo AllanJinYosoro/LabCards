@@ -172,11 +172,6 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addTextBlock() = insertBlocksAfter(null, listOf(CardContentBlock.TextBlock(newBlockId(), "")))
-
-    fun addTextBlockAfter(afterBlockId: String?) =
-        insertBlocksAfter(afterBlockId, listOf(CardContentBlock.TextBlock(newBlockId(), "")))
-
     fun addNumberBlock() = addNumberBlockAfter(null)
 
     fun addNumberBlockAfter(afterBlockId: String?) =
@@ -186,6 +181,13 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 CardContentBlock.NumberInputBlock(newBlockId(), "0", ""),
                 CardContentBlock.TextBlock(newBlockId(), "")
             )
+        )
+
+    fun addNumberBlockAt(anchorBlockId: String?, textOffset: Int?) =
+        insertBlocksAtTextOffset(
+            anchorBlockId = anchorBlockId,
+            textOffset = textOffset,
+            newBlocks = listOf(CardContentBlock.NumberInputBlock(newBlockId(), "0", ""))
         )
 
     fun addTimeBlock() {
@@ -217,6 +219,29 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addTimeBlockAt(anchorBlockId: String?, textOffset: Int?) {
+        val state = _cardEditorState.value
+        if (state.draft.blocks.any { it is CardContentBlock.TimeInputBlock }) {
+            _cardEditorState.value = state.copy(error = "一张卡片最多只能有一个时间输入框")
+            return
+        }
+        insertBlocksAtTextOffset(
+            anchorBlockId = anchorBlockId,
+            textOffset = textOffset,
+            newBlocks = listOf(CardContentBlock.TimeInputBlock(newBlockId(), 60, TimeInputUnit.SECONDS))
+        )
+        _cardEditorState.update {
+            it.copy(
+                draft = it.draft.copy(
+                    hasTimer = true,
+                    timerMode = TimerMode.BOUND_TO_TIME_INPUT,
+                    fixedTimerDurationSeconds = null
+                ),
+                error = null
+            )
+        }
+    }
+
     private fun insertBlocksAfter(afterBlockId: String?, newBlocks: List<CardContentBlock>) {
         _cardEditorState.update { state ->
             val blocks = state.draft.blocks
@@ -226,6 +251,39 @@ class FlowViewModel(application: Application) : AndroidViewModel(application) {
                 addAll(insertIndex, newBlocks)
             }
             state.copy(draft = state.draft.copy(blocks = updated), error = null)
+        }
+    }
+
+    private fun insertBlocksAtTextOffset(
+        anchorBlockId: String?,
+        textOffset: Int?,
+        newBlocks: List<CardContentBlock>
+    ) {
+        _cardEditorState.update { state ->
+            val blocks = state.draft.blocks
+            val anchorIndex = anchorBlockId?.let { id -> blocks.indexOfFirst { it.id == id } } ?: -1
+            val anchor = blocks.getOrNull(anchorIndex)
+            if (anchor is CardContentBlock.TextBlock && textOffset != null) {
+                val safeOffset = textOffset.coerceIn(0, anchor.text.length)
+                val before = anchor.text.take(safeOffset)
+                val after = anchor.text.drop(safeOffset)
+                val updated = blocks.toMutableList().apply {
+                    removeAt(anchorIndex)
+                    addAll(
+                        anchorIndex,
+                        listOf(anchor.copy(text = before)) +
+                            newBlocks +
+                            CardContentBlock.TextBlock(newBlockId(), after)
+                    )
+                }
+                state.copy(draft = state.draft.copy(blocks = updated), error = null)
+            } else {
+                val targetIndex = if (anchorIndex >= 0) anchorIndex + 1 else blocks.size
+                val updated = blocks.toMutableList().apply {
+                    addAll(targetIndex, newBlocks + CardContentBlock.TextBlock(newBlockId(), ""))
+                }
+                state.copy(draft = state.draft.copy(blocks = updated), error = null)
+            }
         }
     }
 

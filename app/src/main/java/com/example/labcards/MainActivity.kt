@@ -110,9 +110,8 @@ class MainActivity : ComponentActivity() {
                             val cardState by flowViewModel.cardEditorState.collectAsState()
                             CardEditScreen(
                                 state = cardState,
-                                onAddText = flowViewModel::addTextBlockAfter,
-                                onAddNumber = flowViewModel::addNumberBlockAfter,
-                                onAddTime = flowViewModel::addTimeBlockAfter,
+                                onAddNumber = flowViewModel::addNumberBlockAt,
+                                onAddTime = flowViewModel::addTimeBlockAt,
                                 onUpdateBlock = flowViewModel::updateBlock,
                                 onRemoveBlock = flowViewModel::removeBlock,
                                 onStyleChange = flowViewModel::updateCardStyle,
