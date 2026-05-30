@@ -44,7 +44,8 @@ class CalculatorUtilTest {
 
         assertFalse(result.isError)
         assertTrue(result.text.contains("V1"))
-        assertTrue(result.text.contains("稀释液"))
+        assertTrue(result.text.contains("mL"))
+        assertTrue(result.text.contains("Diluent volume"))
     }
 
     @Test
