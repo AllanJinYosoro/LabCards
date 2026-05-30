@@ -15,6 +15,7 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+app/release/
 *.apk
 *.ap_
 *.aab

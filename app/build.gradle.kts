@@ -5,6 +5,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val releaseStoreFile = System.getenv("LABCARDS_RELEASE_STORE_FILE")
+val releaseStorePassword = System.getenv("LABCARDS_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("LABCARDS_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("LABCARDS_RELEASE_KEY_PASSWORD")
+val hasReleaseSigningConfig = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.example.labcards"
     compileSdk {
@@ -23,9 +34,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
