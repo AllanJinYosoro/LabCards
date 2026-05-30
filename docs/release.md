@@ -8,12 +8,12 @@ artifact, and publishes it to GitHub Releases.
 
 Add these repository secrets in GitHub:
 
-- `LABCARDS_KEYSTORE_BASE64`
-- `LABCARDS_RELEASE_STORE_PASSWORD`
-- `LABCARDS_RELEASE_KEY_ALIAS`
-- `LABCARDS_RELEASE_KEY_PASSWORD`
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
 
-Create `LABCARDS_KEYSTORE_BASE64` from the local keystore:
+Create `ANDROID_KEYSTORE_BASE64` from the local keystore:
 
 ```powershell
 [Convert]::ToBase64String(
